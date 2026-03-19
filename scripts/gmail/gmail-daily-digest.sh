@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # gmail-daily-digest.sh — 미읽은 메일 일일 요약 (발신자/라벨별 그룹핑, 마크다운 출력)
-set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../../utils/common.sh"
+source "${SCRIPT_DIR}/../../utils/gws-helpers.sh"
+check_gws_deps
 
 MAX_RESULTS="${1:-50}"
 OUTPUT_FILE="${2:-}"
@@ -61,8 +65,7 @@ MESSAGES=$(gws gmail users messages list --params "{\"userId\":\"me\",\"q\":\"is
 MSG_IDS=$(echo "$MESSAGES" | jq -r '.messages[]?.id' 2>/dev/null)
 
 # 발신자별, 라벨별 그룹핑용 임시 파일
-TMP_DIR=$(mktemp -d)
-trap 'rm -rf "$TMP_DIR"' EXIT
+TMP_DIR=$(make_temp_dir "gmail-digest")
 
 SENDER_DIR="$TMP_DIR/senders"
 LABEL_DIR="$TMP_DIR/labels"

@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
 # gmail-to-tasks.sh — 특정 라벨/조건의 메일을 Google Tasks로 변환
-set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../../utils/common.sh"
+source "${SCRIPT_DIR}/../../utils/gws-helpers.sh"
+check_gws_deps
 
 QUERY="${1:-label:action-required is:unread}"
 MAX_RESULTS="${2:-5}"
 
-echo "📧→✅ Gmail to Tasks 변환"
-echo "검색 조건: $QUERY"
-echo "---"
+log_info "Gmail to Tasks 변환"
+log_info "검색 조건: $QUERY"
 
 # 기본 태스크 리스트 ID 가져오기
 LIST_ID=$(gws tasks tasklists list --params '{"maxResults":1}' | jq -r '.items[0].id')
 if [ -z "$LIST_ID" ] || [ "$LIST_ID" = "null" ]; then
-  echo "ERROR: 태스크 리스트를 찾을 수 없습니다"
+  log_error "태스크 리스트를 찾을 수 없습니다"
   exit 1
 fi
 
@@ -21,7 +24,7 @@ MESSAGES=$(gws gmail users messages list --params "{\"userId\":\"me\",\"q\":\"$Q
 MSG_IDS=$(echo "$MESSAGES" | jq -r '.messages[]?.id' 2>/dev/null)
 
 if [ -z "$MSG_IDS" ]; then
-  echo "변환할 메일이 없습니다"
+  log_info "변환할 메일이 없습니다"
   exit 0
 fi
 
@@ -43,5 +46,4 @@ echo "$MSG_IDS" | while read -r MSG_ID; do
   COUNT=$((COUNT + 1))
 done
 
-echo "---"
-echo "총 ${COUNT}개 태스크 생성 완료"
+log_success "총 ${COUNT}개 태스크 생성 완료"

@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # calendar-meeting-prep.sh — 다음 회의 준비 자료 자동 수집
 # 기능: 참석자 정보, 관련 Drive 문서, 이전 미팅 노트, 아젠다 요약
-set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../../utils/common.sh"
+source "${SCRIPT_DIR}/../../utils/gws-helpers.sh"
+check_gws_deps
 
 # 설정
 HOURS_AHEAD="${1:-24}"
@@ -11,13 +15,13 @@ END=$(date -u -d "$HOURS_AHEAD hours" +%Y-%m-%dT%H:%M:%S+09:00 2>/dev/null \
 MAX_DRIVE_RESULTS=10
 MAX_PAST_NOTES=5
 
-echo "📋 회의 준비 자료 수집기"
+log_info "회의 준비 자료 수집기"
 echo "========================"
-echo "조회 범위: 지금 ~ ${HOURS_AHEAD}시간 후"
+log_info "조회 범위: 지금 ~ ${HOURS_AHEAD}시간 후"
 echo ""
 
 # ─── 1단계: 다음 예정 회의 조회 ───
-echo "🔍 다음 예정 회의를 조회 중..."
+log_info "다음 예정 회의를 조회 중..."
 
 EVENTS=$(gws calendar events list --params "{
   \"calendarId\":\"primary\",
@@ -31,7 +35,7 @@ EVENTS=$(gws calendar events list --params "{
 EVENT_COUNT=$(echo "$EVENTS" | jq '[.items[]? | select(.start.dateTime != null)] | length')
 
 if [ "$EVENT_COUNT" -eq 0 ]; then
-  echo "✅ ${HOURS_AHEAD}시간 내 예정된 회의가 없습니다."
+  log_success "${HOURS_AHEAD}시간 내 예정된 회의가 없습니다."
   exit 0
 fi
 

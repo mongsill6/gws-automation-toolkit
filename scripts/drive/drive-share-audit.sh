@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # drive-share-audit.sh — Drive 파일/폴더 공유 권한 감사 스크립트
 # 외부 공유 감지, CSV 리포트 출력
-set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../../utils/common.sh"
+source "${SCRIPT_DIR}/../../utils/gws-helpers.sh"
+check_gws_deps
 
 # ── 설정 ──
 COMPANY_DOMAIN="${1:-spigen.com}"
@@ -11,11 +15,10 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 CSV_FILE="${OUTPUT_DIR}/drive-share-audit-${TIMESTAMP}.csv"
 PAGE_SIZE=100
 
-echo "🔍 Drive 공유 권한 감사 시작"
-echo "   도메인: ${COMPANY_DOMAIN}"
-echo "   대상 폴더: ${TARGET_FOLDER}"
-echo "   리포트: ${CSV_FILE}"
-echo "---"
+log_info "Drive 공유 권한 감사 시작"
+log_info "   도메인: ${COMPANY_DOMAIN}"
+log_info "   대상 폴더: ${TARGET_FOLDER}"
+log_info "   리포트: ${CSV_FILE}"
 
 # CSV 헤더
 echo "파일ID,파일명,MIME타입,권한유형,역할,이메일/도메인,외부공유,링크공유,생성일" > "$CSV_FILE"
@@ -104,7 +107,7 @@ audit_permissions() {
 }
 
 # ── 메인 실행 ──
-echo "📂 파일 목록 조회 중..."
+log_info "파일 목록 조회 중..."
 FILES_JSON=$(fetch_files)
 
 if [ -z "$FILES_JSON" ]; then
@@ -112,7 +115,7 @@ if [ -z "$FILES_JSON" ]; then
   exit 0
 fi
 
-echo "🔐 권한 감사 진행 중..."
+log_info "권한 감사 진행 중..."
 while IFS= read -r file; do
   FILE_ID=$(echo "$file" | jq -r '.id')
   FILE_NAME=$(echo "$file" | jq -r '.name')

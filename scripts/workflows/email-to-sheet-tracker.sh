@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 # email-to-sheet-tracker.sh — Gmail 메일을 Google Sheets에 자동 기록하는 트래커
 # 발신자/제목/날짜/스니펫 추출, 메시지 ID로 중복 방지
-set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../../utils/common.sh"
+source "${SCRIPT_DIR}/../../utils/gws-helpers.sh"
+check_gws_deps
 
 QUERY="${1:?Usage: $0 <gmail-query> <spreadsheet-id> [sheet-name] [max-results]}"
 SPREADSHEET_ID="${2:?Spreadsheet ID를 입력하세요}"
 SHEET_NAME="${3:-EmailTracker}"
 MAX_RESULTS="${4:-20}"
 
-echo "📧→📊 Email to Sheet Tracker"
-echo "  검색: $QUERY"
-echo "  시트: $SPREADSHEET_ID / $SHEET_NAME"
-echo "---"
+log_info "Email to Sheet Tracker"
+log_info "  검색: $QUERY"
+log_info "  시트: $SPREADSHEET_ID / $SHEET_NAME"
 
 # 1. 기존 시트에서 이미 기록된 메시지 ID 목록 가져오기
 EXISTING_IDS=""
@@ -36,7 +39,7 @@ MESSAGES=$(gws gmail users messages list \
 MSG_IDS=$(echo "$MESSAGES" | jq -r '.messages[]?.id' 2>/dev/null)
 
 if [ -z "$MSG_IDS" ]; then
-  echo "기록할 메일이 없습니다"
+  log_info "기록할 메일이 없습니다"
   exit 0
 fi
 
@@ -86,5 +89,4 @@ if [ "$ADDED" -gt 0 ]; then
     --json "$APPEND_BODY" >/dev/null 2>&1
 fi
 
-echo "---"
-echo "결과: 총 ${TOTAL}건 검색, ${ADDED}건 추가, ${SKIPPED}건 중복 스킵"
+log_success "결과: 총 ${TOTAL}건 검색, ${ADDED}건 추가, ${SKIPPED}건 중복 스킵"

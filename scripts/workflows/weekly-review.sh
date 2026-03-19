@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # weekly-review.sh — 주간 리뷰: 메일 통계 + 완료 태스크 + 회의 시간 합계 + Drive 활동 요약
-set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../../utils/common.sh"
+source "${SCRIPT_DIR}/../../utils/gws-helpers.sh"
+check_gws_deps
 
 # 이번 주 월~금 날짜 범위 계산
 DOW=$(date +%u)  # 1=월 ~ 7=일

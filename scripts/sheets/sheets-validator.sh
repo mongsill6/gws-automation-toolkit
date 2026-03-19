@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # sheets-validator.sh — Google Sheets 데이터 유효성 검사 스크립트
 # 빈 셀, 중복값, 형식 오류를 감지하고 요약 리포트 출력
-set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../../utils/common.sh"
+source "${SCRIPT_DIR}/../../utils/gws-helpers.sh"
+check_gws_deps
 
 # ── 사용법 ──
 usage() {
@@ -78,9 +82,9 @@ if [ -z "$OUTPUT_FILE" ]; then
 fi
 
 # ── 유틸 함수 ──
-log() {
+_qlog() {
   if [ "$QUIET" = false ]; then
-    echo "$@"
+    log_info "$@"
   fi
 }
 
@@ -166,7 +170,7 @@ done
 # 1. 빈 셀 검사
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 if [ "$CHECK_EMPTY" = true ]; then
-  log "🔎 [1/3] 빈 셀 검사 중..."
+  _qlog "🔎 [1/3] 빈 셀 검사 중..."
 
   # 필수 컬럼 결정
   if [ -n "$REQUIRED_COLS" ]; then
@@ -198,14 +202,14 @@ if [ "$CHECK_EMPTY" = true ]; then
     done
   done
 
-  log "   빈 셀: ${ISSUE_EMPTY}건 발견"
+  _qlog "   빈 셀: ${ISSUE_EMPTY}건 발견"
 fi
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 2. 중복값 검사
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 if [ "$CHECK_DUPLICATES" = true ]; then
-  log "🔎 [2/3] 중복값 검사 중..."
+  _qlog "🔎 [2/3] 중복값 검사 중..."
 
   if [ -n "$UNIQUE_COLS" ]; then
     DUP_LIST=$(parse_col_list "$UNIQUE_COLS")
@@ -243,14 +247,14 @@ if [ "$CHECK_DUPLICATES" = true ]; then
     unset seen_rows
   done
 
-  log "   중복값: ${ISSUE_DUPLICATE}건 발견"
+  _qlog "   중복값: ${ISSUE_DUPLICATE}건 발견"
 fi
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 3. 형식 오류 검사
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 if [ "$CHECK_FORMAT" = true ]; then
-  log "🔎 [3/3] 형식 오류 검사 중..."
+  _qlog "🔎 [3/3] 형식 오류 검사 중..."
 
   # 이메일 형식 검증
   if [ -n "$EMAIL_COLS" ]; then
@@ -368,7 +372,7 @@ if [ "$CHECK_FORMAT" = true ]; then
     done
   fi
 
-  log "   형식 오류: ${ISSUE_FORMAT}건 발견"
+  _qlog "   형식 오류: ${ISSUE_FORMAT}건 발견"
 fi
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

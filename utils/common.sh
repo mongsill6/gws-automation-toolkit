@@ -37,9 +37,17 @@ make_temp() {
   echo "$tmpfile"
 }
 
+make_temp_dir() {
+  local tmpdir
+  tmpdir=$(mktemp -d "/tmp/${1:-common}-XXXXXX")
+  _COMMON_TMPFILES+=("$tmpdir")
+  echo "$tmpdir"
+}
+
 _cleanup_tmpfiles() {
   for f in "${_COMMON_TMPFILES[@]:-}"; do
     [ -f "$f" ] && rm -f "$f"
+    [ -d "$f" ] && rm -rf "$f"
   done
 }
 trap '_cleanup_tmpfiles' EXIT

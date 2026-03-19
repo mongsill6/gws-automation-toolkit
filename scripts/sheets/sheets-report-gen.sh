@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # sheets-report-gen.sh — 템플릿 Google Sheets를 복사하여 새 리포트 자동 생성
 # 날짜/제목 자동 치환, 데이터 범위 업데이트, 차트 포함 템플릿 지원
-set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../../utils/common.sh"
+source "${SCRIPT_DIR}/../../utils/gws-helpers.sh"
+check_gws_deps
 
 # ── 사용법 ──
 usage() {
@@ -96,9 +100,9 @@ if [ -z "$TITLE" ]; then
   TITLE="리포트 - ${REPORT_DATE}"
 fi
 
-log() {
+_qlog() {
   if [ "$QUIET" = false ]; then
-    echo "$@"
+    log_info "$@"
   fi
 }
 
@@ -110,16 +114,16 @@ DAY=$(echo "$REPORT_DATE" | cut -d'-' -f3)
 WEEK=$(date -d "$REPORT_DATE" +%V 2>/dev/null || echo "01")
 QUARTER=$(( (10#$MONTH - 1) / 3 + 1 ))
 
-log "📊 Sheets 리포트 생성기"
-log "   템플릿: ${TEMPLATE_ID}"
-log "   제목:   ${TITLE}"
-log "   날짜:   ${REPORT_DATE}"
-log "---"
+_qlog "📊 Sheets 리포트 생성기"
+_qlog "   템플릿: ${TEMPLATE_ID}"
+_qlog "   제목:   ${TITLE}"
+_qlog "   날짜:   ${REPORT_DATE}"
+_qlog "---"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 1. 템플릿 복사
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-log "📋 [1/5] 템플릿 복사 중..."
+_qlog "📋 [1/5] 템플릿 복사 중..."
 
 COPY_BODY="{\"name\":\"${TITLE}\"}"
 if [ -n "$FOLDER_ID" ]; then
@@ -142,13 +146,13 @@ if [ -z "$NEW_ID" ] || [ "$NEW_ID" = "null" ]; then
   exit 1
 fi
 
-log "   새 스프레드시트: ${NEW_ID}"
-log "   URL: ${NEW_URL}"
+_qlog "   새 스프레드시트: ${NEW_ID}"
+_qlog "   URL: ${NEW_URL}"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 2. 기본 플레이스홀더 치환
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-log "🔄 [2/5] 플레이스홀더 치환 중..."
+_qlog "🔄 [2/5] 플레이스홀더 치환 중..."
 
 # 시트 목록 가져오기
 SHEETS_META=$(gws sheets spreadsheets get \
@@ -235,12 +239,12 @@ for sname in "${SHEET_NAMES[@]}"; do
   fi
 done
 
-log "   치환 완료 (${REPLACED_COUNT}개 플레이스홀더)"
+_qlog "   치환 완료 (${REPLACED_COUNT}개 플레이스홀더)"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 3. 데이터 삽입
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-log "📥 [3/5] 데이터 삽입 중..."
+_qlog "📥 [3/5] 데이터 삽입 중..."
 
 DATA_ROWS=0
 
@@ -292,33 +296,33 @@ print(json.dumps(data))
       exit 1
     }
 
-    log "   ${DATA_ROWS}행 삽입 완료 (${SHEET_NAME}!${DATA_RANGE})"
+    _qlog "   ${DATA_ROWS}행 삽입 완료 (${SHEET_NAME}!${DATA_RANGE})"
   else
-    log "   삽입할 데이터 없음"
+    _qlog "   삽입할 데이터 없음"
   fi
 else
-  log "   데이터 삽입 건너뜀 (--data-range와 --data-file/--data-json 미지정)"
+  _qlog "   데이터 삽입 건너뜀 (--data-range와 --data-file/--data-json 미지정)"
 fi
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 4. 스프레드시트 제목 업데이트
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-log "✏️  [4/5] 스프레드시트 메타데이터 업데이트 중..."
+_qlog "✏️  [4/5] 스프레드시트 메타데이터 업데이트 중..."
 
 # 스프레드시트 제목이 파일명과 다를 수 있으므로 batchUpdate로 제목 동기화
 gws sheets spreadsheets batchUpdate \
   --params "{\"spreadsheetId\":\"${NEW_ID}\"}" \
   --json "{\"requests\":[{\"updateSpreadsheetProperties\":{\"properties\":{\"title\":\"${TITLE}\"},\"fields\":\"title\"}}]}" \
   > /dev/null 2>&1 || {
-  log "⚠️ 스프레드시트 제목 업데이트 실패 (무시)"
+  _qlog "⚠️ 스프레드시트 제목 업데이트 실패 (무시)"
 }
 
-log "   제목: ${TITLE}"
+_qlog "   제목: ${TITLE}"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 5. 공유 설정
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-log "🔗 [5/5] 공유 설정 중..."
+_qlog "🔗 [5/5] 공유 설정 중..."
 
 if [ -n "$SHARE_EMAILS" ]; then
   IFS=',' read -ra EMAILS <<< "$SHARE_EMAILS"
@@ -333,15 +337,15 @@ if [ -n "$SHARE_EMAILS" ]; then
       --json "{\"role\":\"${SHARE_ROLE}\",\"type\":\"user\",\"emailAddress\":\"${email}\"}" \
       > /dev/null 2>&1 && {
       ((SHARED_COUNT++)) || true
-      log "   ${email} (${SHARE_ROLE})"
+      _qlog "   ${email} (${SHARE_ROLE})"
     } || {
       echo "⚠️ 공유 실패: ${email}"
     }
   done
 
-  log "   ${SHARED_COUNT}명에게 공유 완료"
+  _qlog "   ${SHARED_COUNT}명에게 공유 완료"
 else
-  log "   공유 설정 건너뜀"
+  _qlog "   공유 설정 건너뜀"
 fi
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

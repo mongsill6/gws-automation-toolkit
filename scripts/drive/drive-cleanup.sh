@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # drive-cleanup.sh — Drive에서 오래된 파일 목록 조회 및 정리
-set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../../utils/common.sh"
+source "${SCRIPT_DIR}/../../utils/gws-helpers.sh"
+check_gws_deps
 
 DAYS_OLD="${1:-90}"
 DRY_RUN="${2:-true}"  # true=목록만, false=실제 삭제
 
 BEFORE_DATE=$(date -d "$DAYS_OLD days ago" +%Y-%m-%dT00:00:00 2>/dev/null || date -v-${DAYS_OLD}d +%Y-%m-%dT00:00:00)
 
-echo "🗂️ Drive 파일 정리: ${DAYS_OLD}일 이전 (dry_run=$DRY_RUN)"
-echo "---"
+log_info "Drive 파일 정리: ${DAYS_OLD}일 이전 (dry_run=$DRY_RUN)"
 
 # 오래된 파일 검색 (내가 소유한 것만)
 FILES=$(gws drive files list --params "{\"q\":\"modifiedTime < '$BEFORE_DATE' and 'me' in owners and trashed = false\",\"pageSize\":50,\"fields\":\"files(id,name,modifiedTime,size,mimeType)\"}")

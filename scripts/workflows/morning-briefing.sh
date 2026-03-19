@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # morning-briefing.sh — 아침 브리핑: 미읽은 메일 + 오늘 일정 + 태스크
-set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../../utils/common.sh"
+source "${SCRIPT_DIR}/../../utils/gws-helpers.sh"
+check_gws_deps
 
 TODAY=$(date +%Y-%m-%d)
-echo "=== 아침 브리핑 ($TODAY) ==="
+log_info "=== 아침 브리핑 ($TODAY) ==="
 echo ""
 
 # 1. 미읽은 메일 요약
-echo "📬 미읽은 메일"
-echo "---"
+log_info "미읽은 메일"
 UNREAD=$(gws gmail users messages list --params "{\"userId\":\"me\",\"q\":\"is:unread\",\"maxResults\":10}" 2>/dev/null)
 echo "$UNREAD" | jq -r '.messages[]? | .id' | while read -r MSG_ID; do
   HEADERS=$(gws gmail users messages get --params "{\"userId\":\"me\",\"id\":\"$MSG_ID\",\"format\":\"metadata\",\"metadataHeaders\":[\"From\",\"Subject\"]}" 2>/dev/null)

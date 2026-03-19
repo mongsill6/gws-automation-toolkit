@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # calendar-conflict-check.sh — 일정 충돌 감지
-set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../../utils/common.sh"
+source "${SCRIPT_DIR}/../../utils/gws-helpers.sh"
+check_gws_deps
 
 DAYS_AHEAD="${1:-7}"
 TODAY=$(date +%Y-%m-%d)
 END_DATE=$(date -d "$DAYS_AHEAD days" +%Y-%m-%d 2>/dev/null || date -v+${DAYS_AHEAD}d +%Y-%m-%d)
 
-echo "⚠️ 일정 충돌 검사: $TODAY ~ $END_DATE"
-echo "---"
+log_info "일정 충돌 검사: $TODAY ~ $END_DATE"
 
 TIME_MIN="${TODAY}T00:00:00+09:00"
 TIME_MAX="${END_DATE}T23:59:59+09:00"
