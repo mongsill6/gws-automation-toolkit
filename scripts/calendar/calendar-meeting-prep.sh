@@ -16,7 +16,6 @@ MAX_DRIVE_RESULTS=10
 MAX_PAST_NOTES=5
 
 log_info "회의 준비 자료 수집기"
-echo "========================"
 log_info "조회 범위: 지금 ~ ${HOURS_AHEAD}시간 후"
 echo ""
 

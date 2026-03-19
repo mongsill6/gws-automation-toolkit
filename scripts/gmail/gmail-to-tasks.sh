@@ -42,7 +42,7 @@ echo "$MSG_IDS" | while read -r MSG_ID; do
   gws tasks tasks insert --params "{\"tasklist\":\"$LIST_ID\"}" \
     --json "{\"title\":\"$TASK_TITLE\",\"notes\":\"$TASK_NOTES\"}" >/dev/null 2>&1
 
-  echo "  ✅ $TASK_TITLE"
+  log_info "$TASK_TITLE"
   COUNT=$((COUNT + 1))
 done
 

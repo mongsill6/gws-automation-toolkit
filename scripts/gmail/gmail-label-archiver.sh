@@ -38,7 +38,7 @@ echo "$MSG_IDS" | while read -r MSG_ID; do
   gws gmail users messages modify --params "{\"userId\":\"me\",\"id\":\"$MSG_ID\"}" \
     --json '{"removeLabelIds":["INBOX"]}' >/dev/null 2>&1
   COUNT=$((COUNT + 1))
-  echo "  📦 Archived: $MSG_ID"
+  log_info "Archived: $MSG_ID"
 done
 
 log_success "총 ${COUNT}개 메일 아카이브 완료"

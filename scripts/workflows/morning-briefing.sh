@@ -22,7 +22,7 @@ done
 echo ""
 
 # 2. 오늘 일정
-echo "📅 오늘 일정"
+log_info "오늘 일정"
 echo "---"
 TIME_MIN="${TODAY}T00:00:00+09:00"
 TIME_MAX="${TODAY}T23:59:59+09:00"
@@ -31,7 +31,7 @@ echo "$EVENTS" | jq -r '.items[]? | "  - \(.start.dateTime // .start.date | spli
 echo ""
 
 # 3. 오늘 할 일 (Google Tasks)
-echo "✅ 할 일"
+log_info "할 일"
 echo "---"
 TASKLISTS=$(gws tasks tasklists list --params '{"maxResults":1}' 2>/dev/null)
 LIST_ID=$(echo "$TASKLISTS" | jq -r '.items[0].id' 2>/dev/null)
@@ -41,4 +41,4 @@ if [ -n "$LIST_ID" ] && [ "$LIST_ID" != "null" ]; then
 fi
 
 echo ""
-echo "=== 브리핑 끝 ==="
+log_success "브리핑 완료"

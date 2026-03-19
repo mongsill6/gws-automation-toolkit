@@ -26,11 +26,11 @@ fi
 
 # 헤더가 없으면 생성
 if [ -z "$EXISTING_IDS" ]; then
-  echo "시트에 헤더 생성 중..."
+  log_info "시트에 헤더 생성 중..."
   gws sheets spreadsheets values append \
     --params "{\"spreadsheetId\":\"$SPREADSHEET_ID\",\"range\":\"${SHEET_NAME}!A1\",\"valueInputOption\":\"RAW\"}" \
     --json '{"values":[["MessageID","From","Subject","Date","Snippet","Labels"]]}' >/dev/null 2>&1
-  echo "  헤더 생성 완료"
+  log_info "헤더 생성 완료"
 fi
 
 # 2. Gmail에서 메일 검색
@@ -78,7 +78,7 @@ while read -r MSG_ID; do
   ROWS_TO_APPEND=$(echo "$ROWS_TO_APPEND" | jq --argjson row "$ROW" '. + [$row]')
   ADDED=$((ADDED + 1))
 
-  echo "  + [$FROM] $SUBJECT"
+  log_info "[$FROM] $SUBJECT"
 done <<< "$MSG_IDS"
 
 # 5. 누적된 행을 한 번에 Sheets에 추가 (API 호출 최소화)

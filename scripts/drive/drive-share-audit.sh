@@ -42,7 +42,7 @@ fetch_files() {
 
     local result
     result=$(gws drive files list --params "$params" 2>/dev/null) || {
-      echo "⚠️ 파일 목록 조회 실패"
+      log_error "파일 목록 조회 실패"
       return 1
     }
 
@@ -62,7 +62,7 @@ audit_permissions() {
 
   local perms
   perms=$(gws drive permissions list --params "{\"fileId\":\"${file_id}\",\"fields\":\"permissions(id,type,role,emailAddress,domain,allowFileDiscovery)\"}" 2>/dev/null) || {
-    echo "  ⚠️ 권한 조회 실패: ${file_name}"
+    log_warn "권한 조회 실패: ${file_name}"
     return 0
   }
 
@@ -111,7 +111,7 @@ log_info "파일 목록 조회 중..."
 FILES_JSON=$(fetch_files)
 
 if [ -z "$FILES_JSON" ]; then
-  echo "ℹ️ 감사 대상 파일이 없습니다."
+  log_info "감사 대상 파일이 없습니다."
   exit 0
 fi
 
@@ -123,7 +123,7 @@ while IFS= read -r file; do
   CREATED=$(echo "$file" | jq -r '.createdTime // "unknown"')
 
   ((TOTAL_FILES++)) || true
-  echo "  📄 [${TOTAL_FILES}] ${FILE_NAME}"
+  log_info "[${TOTAL_FILES}] ${FILE_NAME}"
 
   audit_permissions "$FILE_ID" "$FILE_NAME" "$MIME_TYPE" "$CREATED"
 done <<< "$FILES_JSON"

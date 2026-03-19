@@ -18,15 +18,15 @@ FILES=$(gws drive files list --params "{\"q\":\"modifiedTime < '$BEFORE_DATE' an
 
 echo "$FILES" | jq -r '.files[]? | "\(.name)\t\(.modifiedTime[:10])\t\(.size // "?")\t\(.id)"' | while IFS=$'\t' read -r NAME DATE SIZE ID; do
   SIZE_MB=$(echo "scale=1; ${SIZE:-0}/1048576" | bc 2>/dev/null || echo "?")
-  echo "  - $NAME ($DATE, ${SIZE_MB}MB)"
+  log_info "$NAME ($DATE, ${SIZE_MB}MB)"
 
   if [ "$DRY_RUN" = "false" ]; then
     gws drive files update --params "{\"fileId\":\"$ID\"}" --json '{"trashed":true}' >/dev/null 2>&1
-    echo "    → 휴지통으로 이동"
+    log_info "→ 휴지통으로 이동"
   fi
 done
 
 echo "---"
 if [ "$DRY_RUN" = "true" ]; then
-  echo "ℹ️ dry run 모드입니다. 실제 삭제: $0 $DAYS_OLD false"
+  log_info "dry run 모드입니다. 실제 삭제: $0 $DAYS_OLD false"
 fi

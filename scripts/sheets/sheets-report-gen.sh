@@ -133,7 +133,7 @@ fi
 COPY_RESULT=$(gws drive files copy \
   --params "{\"fileId\":\"${TEMPLATE_ID}\"}" \
   --json "$COPY_BODY") || {
-  echo "❌ 템플릿 복사 실패. 스프레드시트 ID와 권한을 확인하세요."
+  log_error "템플릿 복사 실패. 스프레드시트 ID와 권한을 확인하세요."
   exit 1
 }
 
@@ -141,7 +141,7 @@ NEW_ID=$(echo "$COPY_RESULT" | jq -r '.id')
 NEW_URL="https://docs.google.com/spreadsheets/d/${NEW_ID}"
 
 if [ -z "$NEW_ID" ] || [ "$NEW_ID" = "null" ]; then
-  echo "❌ 복사된 파일 ID를 가져올 수 없습니다."
+  log_error "복사된 파일 ID를 가져올 수 없습니다."
   echo "$COPY_RESULT" | jq .
   exit 1
 fi
@@ -157,7 +157,7 @@ _qlog "🔄 [2/5] 플레이스홀더 치환 중..."
 # 시트 목록 가져오기
 SHEETS_META=$(gws sheets spreadsheets get \
   --params "{\"spreadsheetId\":\"${NEW_ID}\",\"fields\":\"sheets.properties\"}") || {
-  echo "⚠️ 시트 메타데이터 조회 실패 — 치환 건너뜀"
+  log_warn "시트 메타데이터 조회 실패 — 치환 건너뜀"
   SHEETS_META=""
 }
 
@@ -234,7 +234,7 @@ for sname in "${SHEET_NAMES[@]}"; do
     gws sheets spreadsheets.values update \
       --params "{\"spreadsheetId\":\"${NEW_ID}\",\"range\":\"${UPDATE_RANGE}\",\"valueInputOption\":\"USER_ENTERED\"}" \
       --json "{\"values\":${UPDATED_VALUES}}" > /dev/null 2>&1 || {
-      echo "⚠️ 시트 '${sname}' 플레이스홀더 치환 실패"
+      log_warn "시트 '${sname}' 플레이스홀더 치환 실패"
     }
   fi
 done
@@ -254,7 +254,7 @@ if [ -n "$DATA_RANGE" ] && { [ -n "$DATA_FILE" ] || [ -n "$DATA_JSON" ]; }; then
     INSERT_VALUES="$DATA_JSON"
   elif [ -n "$DATA_FILE" ]; then
     if [ ! -f "$DATA_FILE" ]; then
-      echo "❌ 데이터 파일을 찾을 수 없습니다: ${DATA_FILE}"
+      log_error "데이터 파일을 찾을 수 없습니다: ${DATA_FILE}"
       exit 1
     fi
 
@@ -269,7 +269,7 @@ with open('${DATA_FILE}', 'r', encoding='utf-8') as f:
     data = [row for row in reader]
 print(json.dumps(data))
 ") || {
-          echo "❌ CSV 파싱 실패: ${DATA_FILE}"
+          log_error "CSV 파싱 실패: ${DATA_FILE}"
           exit 1
         }
         ;;
@@ -277,7 +277,7 @@ print(json.dumps(data))
         INSERT_VALUES=$(cat "$DATA_FILE")
         ;;
       *)
-        echo "❌ 지원하지 않는 파일 형식: .${EXT} (csv, json만 지원)"
+        log_error "지원하지 않는 파일 형식: .${EXT} (csv, json만 지원)"
         exit 1
         ;;
     esac
@@ -292,7 +292,7 @@ print(json.dumps(data))
     gws sheets spreadsheets.values update \
       --params "{\"spreadsheetId\":\"${NEW_ID}\",\"range\":\"${UPDATE_RANGE}\",\"valueInputOption\":\"USER_ENTERED\"}" \
       --json "{\"values\":${INSERT_VALUES}}" > /dev/null 2>&1 || {
-      echo "❌ 데이터 삽입 실패"
+      log_error "데이터 삽입 실패"
       exit 1
     }
 
@@ -339,7 +339,7 @@ if [ -n "$SHARE_EMAILS" ]; then
       ((SHARED_COUNT++)) || true
       _qlog "   ${email} (${SHARE_ROLE})"
     } || {
-      echo "⚠️ 공유 실패: ${email}"
+      log_warn "공유 실패: ${email}"
     }
   done
 

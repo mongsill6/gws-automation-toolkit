@@ -132,21 +132,20 @@ parse_col_list() {
 }
 
 # ── 데이터 조회 ──
-log "🔍 Sheets 데이터 유효성 검사"
-log "   스프레드시트: ${SPREADSHEET_ID}"
-log "   범위: ${RANGE}"
-log "---"
+log_info "Sheets 데이터 유효성 검사"
+log_info "스프레드시트: ${SPREADSHEET_ID}"
+log_info "범위: ${RANGE}"
 
-log "📥 데이터 로드 중..."
+log_info "데이터 로드 중..."
 DATA=$(gws sheets spreadsheets.values get --params "{\"spreadsheetId\":\"$SPREADSHEET_ID\",\"range\":\"$RANGE\"}") || {
-  echo "❌ 데이터 조회 실패. 스프레드시트 ID와 범위를 확인하세요."
+  log_error "데이터 조회 실패. 스프레드시트 ID와 범위를 확인하세요."
   exit 1
 }
 
 # 값이 있는지 확인
 ROW_COUNT=$(echo "$DATA" | jq '.values | length')
 if [ "$ROW_COUNT" -eq 0 ] || [ "$ROW_COUNT" = "null" ]; then
-  echo "ℹ️ 데이터가 비어 있습니다."
+  log_info "데이터가 비어 있습니다."
   exit 0
 fi
 
@@ -155,9 +154,8 @@ HEADERS=$(echo "$DATA" | jq -r '.values[0]')
 COL_COUNT=$(echo "$HEADERS" | jq 'length')
 DATA_ROW_COUNT=$((ROW_COUNT - 1))
 
-log "   컬럼 수: ${COL_COUNT}"
-log "   데이터 행: ${DATA_ROW_COUNT}행 (헤더 제외)"
-log ""
+log_info "컬럼 수: ${COL_COUNT}"
+log_info "데이터 행: ${DATA_ROW_COUNT}행 (헤더 제외)"
 
 # 헤더명 캐시
 declare -a HEADER_NAMES=()
