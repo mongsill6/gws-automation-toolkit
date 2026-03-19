@@ -11,7 +11,7 @@ check_gws_deps
 HOURS_AHEAD="${1:-24}"
 NOW=$(date -u +%Y-%m-%dT%H:%M:%S+09:00)
 END=$(date -u -d "$HOURS_AHEAD hours" +%Y-%m-%dT%H:%M:%S+09:00 2>/dev/null \
-  || date -v+${HOURS_AHEAD}H -u +%Y-%m-%dT%H:%M:%S+09:00)
+  || date "-v+${HOURS_AHEAD}H" -u +%Y-%m-%dT%H:%M:%S+09:00)
 MAX_DRIVE_RESULTS=10
 MAX_PAST_NOTES=5
 

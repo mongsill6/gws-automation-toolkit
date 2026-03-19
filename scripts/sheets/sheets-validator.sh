@@ -120,7 +120,7 @@ col_to_letter() {
   local n=$1
   local result=""
   while [ "$n" -ge 0 ]; do
-    result=$(printf "\\$(printf '%03o' $((65 + n % 26)))")${result}
+    result=$(printf '%b' "$(printf '\\%03o' $((65 + n % 26)))")${result}
     n=$(( n / 26 - 1 ))
   done
   echo "$result"

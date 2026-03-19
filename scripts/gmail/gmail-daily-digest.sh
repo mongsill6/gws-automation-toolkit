@@ -20,7 +20,8 @@ parse_sender_name() {
   local from="$1"
   # "Name <email>" → Name, 없으면 이메일 그대로
   if [[ "$from" =~ ^\"?([^\"<]+)\"?[[:space:]]*\< ]]; then
-    echo "${BASH_REMATCH[1]}" | sed 's/[[:space:]]*$//'
+    local _match="${BASH_REMATCH[1]}"
+    echo "${_match%"${_match##*[![:space:]]}"}"
   else
     echo "$from"
   fi
@@ -104,10 +105,12 @@ if [ -n "$MSG_IDS" ]; then
     SAFE_SENDER=$(echo "$SENDER_EMAIL" | tr '/@.' '___')
     SENDER_FILE="$SENDER_DIR/$SAFE_SENDER"
     if [ ! -f "$SENDER_FILE" ]; then
-      echo "SENDER_NAME=$SENDER_NAME" > "$SENDER_FILE"
-      echo "SENDER_EMAIL=$SENDER_EMAIL" >> "$SENDER_FILE"
-      echo "COUNT=0" >> "$SENDER_FILE"
-      echo "---MAILS---" >> "$SENDER_FILE"
+      {
+        echo "SENDER_NAME=$SENDER_NAME"
+        echo "SENDER_EMAIL=$SENDER_EMAIL"
+        echo "COUNT=0"
+        echo "---MAILS---"
+      } > "$SENDER_FILE"
     fi
     # 카운트 증가
     CUR_COUNT=$(grep '^COUNT=' "$SENDER_FILE" | cut -d= -f2)

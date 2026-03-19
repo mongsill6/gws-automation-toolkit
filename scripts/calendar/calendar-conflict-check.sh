@@ -8,7 +8,7 @@ check_gws_deps
 
 DAYS_AHEAD="${1:-7}"
 TODAY=$(date +%Y-%m-%d)
-END_DATE=$(date -d "$DAYS_AHEAD days" +%Y-%m-%d 2>/dev/null || date -v+${DAYS_AHEAD}d +%Y-%m-%d)
+END_DATE=$(date -d "$DAYS_AHEAD days" +%Y-%m-%d 2>/dev/null || date "-v+${DAYS_AHEAD}d" +%Y-%m-%d)
 
 log_info "일정 충돌 검사: $TODAY ~ $END_DATE"
 

@@ -228,7 +228,7 @@ for sname in "${SHEET_NAMES[@]}"; do
   # 변경된 경우에만 업데이트
   if [ "$UPDATED_VALUES" != "$VALUES" ]; then
     COL_COUNT=$(echo "$UPDATED_VALUES" | jq '.[0] | length')
-    END_COL=$(printf "\\$(printf '%03o' $((64 + COL_COUNT)))")
+    END_COL=$(printf '%b' "$(printf '\\%03o' $((64 + COL_COUNT)))")
     UPDATE_RANGE="'${sname}'!A1:${END_COL}${ROW_COUNT}"
 
     gws sheets spreadsheets.values update \
@@ -332,15 +332,15 @@ if [ -n "$SHARE_EMAILS" ]; then
     email=$(echo "$email" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     [ -z "$email" ] && continue
 
-    gws drive permissions create \
+    if gws drive permissions create \
       --params "{\"fileId\":\"${NEW_ID}\"}" \
       --json "{\"role\":\"${SHARE_ROLE}\",\"type\":\"user\",\"emailAddress\":\"${email}\"}" \
-      > /dev/null 2>&1 && {
+      > /dev/null 2>&1; then
       ((SHARED_COUNT++)) || true
       _qlog "   ${email} (${SHARE_ROLE})"
-    } || {
+    else
       log_warn "공유 실패: ${email}"
-    }
+    fi
   done
 
   _qlog "   ${SHARED_COUNT}명에게 공유 완료"

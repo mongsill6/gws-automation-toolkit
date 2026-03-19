@@ -66,10 +66,10 @@ for LIST_ID in $LIST_IDS; do
   ITEMS=$(echo "$COMPLETED" | jq -r '.items[]? | select(.status=="completed") | .title' 2>/dev/null)
   if [ -n "$ITEMS" ]; then
     echo "**${LIST_NAME}**:"
-    echo "$ITEMS" | while read -r TITLE; do
+    while read -r TITLE; do
       echo "- [x] ${TITLE}"
       COMPLETED_TOTAL=$((COMPLETED_TOTAL + 1))
-    done
+    done <<< "$ITEMS"
     echo ""
   fi
 done

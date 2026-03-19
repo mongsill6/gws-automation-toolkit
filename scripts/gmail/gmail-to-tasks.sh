@@ -29,7 +29,7 @@ if [ -z "$MSG_IDS" ]; then
 fi
 
 COUNT=0
-echo "$MSG_IDS" | while read -r MSG_ID; do
+while read -r MSG_ID; do
   # 메일 상세 가져오기
   MSG=$(gws gmail users messages get --params "{\"userId\":\"me\",\"id\":\"$MSG_ID\",\"format\":\"metadata\",\"metadataHeaders\":[\"From\",\"Subject\",\"Date\"]}")
   SUBJECT=$(echo "$MSG" | jq -r '.payload.headers[] | select(.name=="Subject") | .value')
@@ -44,6 +44,6 @@ echo "$MSG_IDS" | while read -r MSG_ID; do
 
   log_info "$TASK_TITLE"
   COUNT=$((COUNT + 1))
-done
+done <<< "$MSG_IDS"
 
 log_success "총 ${COUNT}개 태스크 생성 완료"

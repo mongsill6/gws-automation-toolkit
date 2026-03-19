@@ -66,7 +66,7 @@ audit_permissions() {
     return 0
   }
 
-  echo "$perms" | jq -c '.permissions[]?' 2>/dev/null | while IFS= read -r perm; do
+  while IFS= read -r perm; do
     local perm_type perm_role perm_email is_external is_link
 
     perm_type=$(echo "$perm" | jq -r '.type // "unknown"')
@@ -103,7 +103,7 @@ audit_permissions() {
     # CSV 출력 (쉼표 포함 파일명 이스케이프)
     local safe_name="${file_name//\"/\"\"}"
     echo "\"${file_id}\",\"${safe_name}\",\"${mime_type}\",\"${perm_type}\",\"${perm_role}\",\"${perm_email}\",\"${is_external}\",\"${is_link}\",\"${created_time:0:10}\"" >> "$CSV_FILE"
-  done
+  done < <(echo "$perms" | jq -c '.permissions[]?' 2>/dev/null)
 }
 
 # ── 메인 실행 ──

@@ -9,7 +9,7 @@ check_gws_deps
 LABEL="${1:?Usage: $0 <label-name> [days-old]}"
 DAYS_OLD="${2:-30}"
 
-BEFORE_DATE=$(date -d "$DAYS_OLD days ago" +%Y/%m/%d 2>/dev/null || date -v-${DAYS_OLD}d +%Y/%m/%d)
+BEFORE_DATE=$(date -d "$DAYS_OLD days ago" +%Y/%m/%d 2>/dev/null || date "-v-${DAYS_OLD}d" +%Y/%m/%d)
 
 log_info "Gmail 아카이브: label:$LABEL, ${DAYS_OLD}일 이전"
 
@@ -33,12 +33,12 @@ if [ -z "$MSG_IDS" ]; then
 fi
 
 COUNT=0
-echo "$MSG_IDS" | while read -r MSG_ID; do
+while read -r MSG_ID; do
   # INBOX 라벨 제거 (아카이브 = INBOX에서 제거)
   gws gmail users messages modify --params "{\"userId\":\"me\",\"id\":\"$MSG_ID\"}" \
     --json '{"removeLabelIds":["INBOX"]}' >/dev/null 2>&1
   COUNT=$((COUNT + 1))
   log_info "Archived: $MSG_ID"
-done
+done <<< "$MSG_IDS"
 
 log_success "총 ${COUNT}개 메일 아카이브 완료"
