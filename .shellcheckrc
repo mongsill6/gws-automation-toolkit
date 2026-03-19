@@ -1,0 +1,15 @@
+# .shellcheckrc — gws-automation-toolkit shellcheck 설정
+# https://github.com/koalaman/shellcheck/wiki/Directives
+
+# 외부 소스(source) 파일 경로 힌트
+source-path=SCRIPTDIR
+source-path=utils/
+
+# 전역 비활성화 규칙
+# SC1091: source 경로를 찾을 수 없음 (런타임 경로 의존)
+disable=SC1091
+# SC2155: declare와 할당 분리 권고 (간결성 우선)
+disable=SC2155
+
+# 기본 셸 방언
+shell=bash
