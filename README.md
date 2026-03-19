@@ -28,6 +28,7 @@ scripts/
 ### Sheets
 - `sheets-to-bq.sh` — Sheets 데이터 → BigQuery 동기화
 - `sheets-report-gen.sh` — 템플릿 기반 리포트 자동 생성
+- `sheets-validator.sh` — 데이터 유효성 검사 (빈 셀/중복값/형식 오류 감지)
 
 ### Calendar
 - `calendar-conflict-check.sh` — 일정 충돌 감지
