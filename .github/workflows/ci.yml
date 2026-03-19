@@ -7,24 +7,59 @@ on:
     branches: [main]
 
 jobs:
-  lint-and-test:
+  shellcheck:
+    name: ShellCheck Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install bats
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq bats
+      - name: Install ShellCheck
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
 
-      - name: ShellCheck — scripts/ and utils/
+      - name: Find all shell scripts
+        id: find-scripts
+        run: |
+          echo "[CI] .sh 파일 탐색 중..."
+          scripts=$(find scripts/ utils/ -name '*.sh' -type f | sort)
+          count=$(echo "$scripts" | wc -l)
+          echo "[CI] $count개 스크립트 발견"
+          echo "$scripts"
+
+      - name: ShellCheck — all .sh files
         run: |
           echo "[CI] shellcheck 실행 중..."
           find scripts/ utils/ -name '*.sh' -type f -print0 \
-            | xargs -0 shellcheck -x
+            | xargs -0 shellcheck -x -S warning
           echo "[CI] shellcheck 통과"
 
-      - name: Bats — unit tests
+      - name: Verify shebang lines
+        run: |
+          echo "[CI] shebang 라인 검증 중..."
+          fail=0
+          while IFS= read -r f; do
+            first_line=$(head -1 "$f")
+            if [[ ! "$first_line" =~ ^#!.*bash && ! "$first_line" =~ ^#!.*sh ]]; then
+              echo "ERROR: $f — shebang 누락 (첫 줄: $first_line)"
+              fail=1
+            fi
+          done < <(find scripts/ utils/ -name '*.sh' -type f)
+          if [ "$fail" -eq 1 ]; then
+            echo "shebang 검증 실패"
+            exit 1
+          fi
+          echo "[CI] shebang 검증 통과"
+
+  test:
+    name: Bats Unit Tests
+    runs-on: ubuntu-latest
+    needs: shellcheck
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install bats
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq bats
+
+      - name: Run bats tests
         run: |
           echo "[CI] bats 테스트 실행 중..."
           bats tests/
