@@ -90,7 +90,7 @@ EVENTS=$(gws calendar events list --params "{\"calendarId\":\"primary\",\"timeMi
 MEETING_COUNT=0
 TOTAL_MINUTES=0
 
-while IFS='|' read -r START_DT END_DT SUMMARY; do
+while IFS='|' read -r START_DT END_DT _; do
   # 종일 일정 제외 (dateTime이 있는 것만 카운트)
   if [ -n "$START_DT" ] && [ "$START_DT" != "null" ] && [ -n "$END_DT" ] && [ "$END_DT" != "null" ]; then
     START_EPOCH=$(date -d "$START_DT" +%s 2>/dev/null || echo 0)
