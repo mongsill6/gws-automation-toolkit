@@ -5,12 +5,65 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../utils/common.sh"
 source "${SCRIPT_DIR}/../../utils/gws-helpers.sh"
+
+# ── 사용법 ──
+usage() {
+  cat <<'USAGE'
+사용법: drive-share-audit.sh [옵션]
+
+Google Drive 파일/폴더의 공유 권한을 감사하여 외부 공유를 감지합니다.
+CSV 형식의 리포트를 생성합니다.
+
+옵션:
+  -d, --domain DOMAIN     회사 도메인 (기본: spigen.com)
+  -f, --folder FOLDER_ID  감사 대상 폴더 ID (기본: root)
+  -o, --output DIR        리포트 출력 디렉토리 (기본: /tmp)
+  -h, --help              사용법 출력
+
+예시:
+  # 기본 설정 (spigen.com, root 폴더)
+  drive-share-audit.sh
+
+  # 특정 도메인과 폴더 지정
+  drive-share-audit.sh -d company.com -f "1ABC_FolderID"
+
+  # 리포트 출력 경로 지정
+  drive-share-audit.sh -o /home/user/reports
+
+  # 위치 인자 호환 (기존 방식)
+  drive-share-audit.sh spigen.com root /tmp
+USAGE
+  exit 0
+}
+
+# ── 인자 파싱 ──
+COMPANY_DOMAIN="spigen.com"
+TARGET_FOLDER="root"
+OUTPUT_DIR="/tmp"
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -d|--domain)   COMPANY_DOMAIN="$2"; shift ;;
+    -f|--folder)   TARGET_FOLDER="$2"; shift ;;
+    -o|--output)   OUTPUT_DIR="$2"; shift ;;
+    -h|--help)     usage ;;
+    -*)            echo "알 수 없는 옵션: $1"; usage ;;
+    *)
+      # 위치 인자 호환
+      if [ "$COMPANY_DOMAIN" = "spigen.com" ] && [[ "$1" == *.* ]]; then
+        COMPANY_DOMAIN="$1"
+      elif [ "$TARGET_FOLDER" = "root" ]; then
+        TARGET_FOLDER="$1"
+      elif [ "$OUTPUT_DIR" = "/tmp" ]; then
+        OUTPUT_DIR="$1"
+      fi
+      ;;
+  esac
+  shift
+done
+
 check_gws_deps
 
-# ── 설정 ──
-COMPANY_DOMAIN="${1:-spigen.com}"
-TARGET_FOLDER="${2:-root}"  # 감사 대상 폴더 ID (기본: root)
-OUTPUT_DIR="${3:-/tmp}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 CSV_FILE="${OUTPUT_DIR}/drive-share-audit-${TIMESTAMP}.csv"
 PAGE_SIZE=100
@@ -132,23 +185,23 @@ done <<< "$FILES_JSON"
 TOTAL_PERMS=$(( $(wc -l < "$CSV_FILE") - 1 ))
 
 echo ""
-echo "═══════════════════════════════════"
-echo "📊 감사 결과 요약"
-echo "═══════════════════════════════════"
+echo "==================================="
+echo "감사 결과 요약"
+echo "==================================="
 echo "  총 감사 파일:    ${TOTAL_FILES}개"
 echo "  총 권한 항목:    ${TOTAL_PERMS}개"
-echo "  🔴 외부 공유:    ${EXTERNAL_SHARES}건"
-echo "  🟡 링크 공유:    ${LINK_SHARES}건"
-echo "  🔴 전체 공개:    ${ANYONE_SHARES}건"
-echo "═══════════════════════════════════"
+echo "  외부 공유:       ${EXTERNAL_SHARES}건"
+echo "  링크 공유:       ${LINK_SHARES}건"
+echo "  전체 공개:       ${ANYONE_SHARES}건"
+echo "==================================="
 
 # 외부 공유 상세 출력
 if [ "$EXTERNAL_SHARES" -gt 0 ] 2>/dev/null || [ "$ANYONE_SHARES" -gt 0 ] 2>/dev/null; then
   echo ""
-  echo "⚠️ 외부 공유 감지 항목:"
-  awk -F',' 'NR>1 && $7=="\"Y\"" {printf "  → %s (%s, 역할: %s)\n", $2, $6, $5}' "$CSV_FILE"
+  echo "외부 공유 감지 항목:"
+  awk -F',' 'NR>1 && $7=="\"Y\"" {printf "  -> %s (%s, 역할: %s)\n", $2, $6, $5}' "$CSV_FILE"
 fi
 
 echo ""
-echo "📁 CSV 리포트 저장됨: ${CSV_FILE}"
-echo "💡 전체 결과 확인: cat ${CSV_FILE} | column -t -s,"
+echo "CSV 리포트 저장됨: ${CSV_FILE}"
+echo "전체 결과 확인: cat ${CSV_FILE} | column -t -s,"

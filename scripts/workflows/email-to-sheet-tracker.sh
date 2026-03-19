@@ -5,12 +5,79 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../utils/common.sh"
 source "${SCRIPT_DIR}/../../utils/gws-helpers.sh"
-check_gws_deps
 
-QUERY="${1:?Usage: $0 <gmail-query> <spreadsheet-id> [sheet-name] [max-results]}"
-SPREADSHEET_ID="${2:?Spreadsheet ID를 입력하세요}"
-SHEET_NAME="${3:-EmailTracker}"
-MAX_RESULTS="${4:-20}"
+# ── 사용법 ──
+usage() {
+  cat <<'USAGE'
+사용법: email-to-sheet-tracker.sh -q <gmail-query> -s <spreadsheet-id> [옵션]
+
+Gmail 메일을 검색하여 Google Sheets에 자동으로 기록합니다.
+메시지 ID 기반 중복 방지를 지원합니다.
+
+필수:
+  -q, --query QUERY          Gmail 검색 조건
+  -s, --spreadsheet ID       대상 Google Sheets 스프레드시트 ID
+
+옵션:
+  -n, --sheet-name NAME      시트 이름 (기본: EmailTracker)
+  -m, --max MAX              최대 처리 건수 (기본: 20)
+  -h, --help                 사용법 출력
+
+예시:
+  # 기본 사용
+  email-to-sheet-tracker.sh -q "from:client@company.com" -s "1BxiMVs0XRA..."
+
+  # 시트 이름과 최대 건수 지정
+  email-to-sheet-tracker.sh -q "label:orders" -s "1BxiMVs0XRA..." -n "Orders" -m 50
+
+  # 위치 인자 호환 (기존 방식)
+  email-to-sheet-tracker.sh "from:client@company.com" "1BxiMVs0XRA..." "EmailTracker" 20
+USAGE
+  exit 0
+}
+
+# ── 인자 파싱 ──
+QUERY=""
+SPREADSHEET_ID=""
+SHEET_NAME="EmailTracker"
+MAX_RESULTS=20
+
+[ $# -eq 0 ] && usage
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -q|--query)        QUERY="$2"; shift ;;
+    -s|--spreadsheet)  SPREADSHEET_ID="$2"; shift ;;
+    -n|--sheet-name)   SHEET_NAME="$2"; shift ;;
+    -m|--max)          MAX_RESULTS="$2"; shift ;;
+    -h|--help)         usage ;;
+    -*)                echo "알 수 없는 옵션: $1"; usage ;;
+    *)
+      # 위치 인자 호환
+      if [ -z "$QUERY" ]; then
+        QUERY="$1"
+      elif [ -z "$SPREADSHEET_ID" ]; then
+        SPREADSHEET_ID="$1"
+      elif [ "$SHEET_NAME" = "EmailTracker" ] && ! [[ "$1" =~ ^[0-9]+$ ]]; then
+        SHEET_NAME="$1"
+      elif [[ "$1" =~ ^[0-9]+$ ]]; then
+        MAX_RESULTS="$1"
+      fi
+      ;;
+  esac
+  shift
+done
+
+if [ -z "$QUERY" ]; then
+  log_error "Gmail 검색 조건이 필요합니다. -q <query>"
+  exit 1
+fi
+if [ -z "$SPREADSHEET_ID" ]; then
+  log_error "스프레드시트 ID가 필요합니다. -s <spreadsheet-id>"
+  exit 1
+fi
+
+check_gws_deps
 
 log_info "Email to Sheet Tracker"
 log_info "  검색: $QUERY"
@@ -52,7 +119,7 @@ while read -r MSG_ID; do
   [ -z "$MSG_ID" ] && continue
   TOTAL=$((TOTAL + 1))
 
-  # 3. 중복 체크 — 이미 기록된 메시지 ID는 스킵
+  # 3. 중복 체크
   if echo "$EXISTING_IDS" | grep -qx "$MSG_ID" 2>/dev/null; then
     SKIPPED=$((SKIPPED + 1))
     continue
@@ -68,12 +135,10 @@ while read -r MSG_ID; do
   SNIPPET=$(echo "$MSG" | jq -r '.snippet // ""' 2>/dev/null)
   LABELS=$(echo "$MSG" | jq -r '[.labelIds[]?] | join(", ")' 2>/dev/null)
 
-  # JSON 특수문자 이스케이프
   FROM=$(echo "$FROM" | sed 's/\\/\\\\/g; s/"/\\"/g')
   SUBJECT=$(echo "$SUBJECT" | sed 's/\\/\\\\/g; s/"/\\"/g')
   SNIPPET=$(echo "$SNIPPET" | sed 's/\\/\\\\/g; s/"/\\"/g')
 
-  # 행 데이터 누적
   ROW="[\"$MSG_ID\",\"$FROM\",\"$SUBJECT\",\"$DATE\",\"$SNIPPET\",\"$LABELS\"]"
   ROWS_TO_APPEND=$(echo "$ROWS_TO_APPEND" | jq --argjson row "$ROW" '. + [$row]')
   ADDED=$((ADDED + 1))
@@ -81,7 +146,7 @@ while read -r MSG_ID; do
   log_info "[$FROM] $SUBJECT"
 done <<< "$MSG_IDS"
 
-# 5. 누적된 행을 한 번에 Sheets에 추가 (API 호출 최소화)
+# 5. 누적된 행을 한 번에 Sheets에 추가
 if [ "$ADDED" -gt 0 ]; then
   APPEND_BODY=$(echo "$ROWS_TO_APPEND" | jq '{values: .}')
   gws sheets spreadsheets values append \

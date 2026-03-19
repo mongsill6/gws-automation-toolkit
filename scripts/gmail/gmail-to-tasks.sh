@@ -4,10 +4,55 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../utils/common.sh"
 source "${SCRIPT_DIR}/../../utils/gws-helpers.sh"
-check_gws_deps
 
-QUERY="${1:-label:action-required is:unread}"
-MAX_RESULTS="${2:-5}"
+# ── 사용법 ──
+usage() {
+  cat <<'USAGE'
+사용법: gmail-to-tasks.sh [옵션]
+
+Gmail에서 특정 조건의 메일을 검색하여 Google Tasks로 자동 변환합니다.
+
+옵션:
+  -q, --query QUERY       Gmail 검색 조건 (기본: "label:action-required is:unread")
+  -m, --max MAX           최대 처리 건수 (기본: 5)
+  -h, --help              사용법 출력
+
+예시:
+  # 기본 설정으로 실행 (action-required 라벨, 미읽은 메일)
+  gmail-to-tasks.sh
+
+  # 특정 발신자 메일을 태스크로 변환
+  gmail-to-tasks.sh -q "from:boss@company.com is:unread" -m 10
+
+  # 위치 인자 호환 (기존 방식)
+  gmail-to-tasks.sh "is:starred is:unread" 3
+USAGE
+  exit 0
+}
+
+# ── 인자 파싱 ──
+QUERY="label:action-required is:unread"
+MAX_RESULTS=5
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -q|--query)   QUERY="$2"; shift ;;
+    -m|--max)     MAX_RESULTS="$2"; shift ;;
+    -h|--help)    usage ;;
+    -*)           echo "알 수 없는 옵션: $1"; usage ;;
+    *)
+      # 위치 인자 호환
+      if [ "$QUERY" = "label:action-required is:unread" ]; then
+        QUERY="$1"
+      elif [ "$MAX_RESULTS" -eq 5 ] 2>/dev/null; then
+        MAX_RESULTS="$1"
+      fi
+      ;;
+  esac
+  shift
+done
+
+check_gws_deps
 
 log_info "Gmail to Tasks 변환"
 log_info "검색 조건: $QUERY"

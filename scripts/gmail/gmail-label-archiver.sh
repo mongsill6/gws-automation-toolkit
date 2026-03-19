@@ -4,10 +4,64 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../utils/common.sh"
 source "${SCRIPT_DIR}/../../utils/gws-helpers.sh"
-check_gws_deps
 
-LABEL="${1:?Usage: $0 <label-name> [days-old]}"
-DAYS_OLD="${2:-30}"
+# ── 사용법 ──
+usage() {
+  cat <<'USAGE'
+사용법: gmail-label-archiver.sh -l <label-name> [옵션]
+
+지정 라벨의 오래된 메일을 자동으로 아카이브(INBOX에서 제거)합니다.
+
+필수:
+  -l, --label LABEL       아카이브 대상 Gmail 라벨 이름
+
+옵션:
+  -d, --days DAYS         기준 일수 (기본: 30일 이전 메일 대상)
+  -h, --help              사용법 출력
+
+예시:
+  # "newsletters" 라벨의 30일 이전 메일 아카이브
+  gmail-label-archiver.sh -l newsletters
+
+  # "promotions" 라벨의 7일 이전 메일 아카이브
+  gmail-label-archiver.sh -l promotions -d 7
+
+  # 위치 인자 호환 (기존 방식)
+  gmail-label-archiver.sh newsletters 7
+USAGE
+  exit 0
+}
+
+# ── 인자 파싱 ──
+LABEL=""
+DAYS_OLD=30
+
+[ $# -eq 0 ] && usage
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -l|--label)     LABEL="$2"; shift ;;
+    -d|--days)      DAYS_OLD="$2"; shift ;;
+    -h|--help)      usage ;;
+    -*)             echo "알 수 없는 옵션: $1"; usage ;;
+    *)
+      # 위치 인자 호환: 첫 번째는 label, 두 번째는 days
+      if [ -z "$LABEL" ]; then
+        LABEL="$1"
+      elif [ "$DAYS_OLD" -eq 30 ] 2>/dev/null; then
+        DAYS_OLD="$1"
+      fi
+      ;;
+  esac
+  shift
+done
+
+if [ -z "$LABEL" ]; then
+  log_error "라벨 이름이 필요합니다. -l <label-name>"
+  exit 1
+fi
+
+check_gws_deps
 
 BEFORE_DATE=$(date -d "$DAYS_OLD days ago" +%Y/%m/%d 2>/dev/null || date "-v-${DAYS_OLD}d" +%Y/%m/%d)
 

@@ -39,6 +39,7 @@ USAGE
 }
 
 # ── 인자 파싱 ──
+[[ "${1:-}" == "-h" || "${1:-}" == "--help" ]] && usage
 [ $# -lt 2 ] && usage
 
 SPREADSHEET_ID="$1"

@@ -57,6 +57,7 @@ USAGE
 
 # ── 인자 파싱 ──
 [ $# -lt 1 ] && usage
+[[ "$1" == "-h" || "$1" == "--help" ]] && usage
 
 TEMPLATE_ID="$1"
 shift

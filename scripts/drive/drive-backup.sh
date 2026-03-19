@@ -5,12 +5,71 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../utils/common.sh"
 source "${SCRIPT_DIR}/../../utils/gws-helpers.sh"
+
+# ── 사용법 ──
+usage() {
+  cat <<'USAGE'
+사용법: drive-backup.sh -s <소스폴더ID> [옵션]
+
+Google Drive 폴더를 로컬 또는 다른 Drive 폴더로 증분 백업합니다.
+마지막 백업 이후 변경된 파일만 처리하여 효율적으로 동작합니다.
+
+필수:
+  -s, --source FOLDER_ID    백업할 소스 Drive 폴더 ID
+
+옵션:
+  -m, --mode MODE           백업 모드: local | drive (기본: local)
+  -t, --target PATH         백업 대상 경로 또는 폴더 ID (기본: /tmp/drive-backup)
+  -h, --help                사용법 출력
+
+예시:
+  # 로컬로 백업 (기본)
+  drive-backup.sh -s "1ABC_FolderID"
+
+  # Drive 다른 폴더로 백업
+  drive-backup.sh -s "1ABC_FolderID" -m drive -t "1DEF_BackupFolderID"
+
+  # 위치 인자 호환 (기존 방식)
+  drive-backup.sh "1ABC_FolderID" local /tmp/drive-backup
+USAGE
+  exit 0
+}
+
+# ── 인자 파싱 ──
+SOURCE_FOLDER=""
+BACKUP_MODE="local"
+BACKUP_TARGET="/tmp/drive-backup"
+
+[ $# -eq 0 ] && usage
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -s|--source)  SOURCE_FOLDER="$2"; shift ;;
+    -m|--mode)    BACKUP_MODE="$2"; shift ;;
+    -t|--target)  BACKUP_TARGET="$2"; shift ;;
+    -h|--help)    usage ;;
+    -*)           echo "알 수 없는 옵션: $1"; usage ;;
+    *)
+      # 위치 인자 호환
+      if [ -z "$SOURCE_FOLDER" ]; then
+        SOURCE_FOLDER="$1"
+      elif [ "$BACKUP_MODE" = "local" ] && { [ "$1" = "local" ] || [ "$1" = "drive" ]; }; then
+        BACKUP_MODE="$1"
+      elif [ "$BACKUP_TARGET" = "/tmp/drive-backup" ]; then
+        BACKUP_TARGET="$1"
+      fi
+      ;;
+  esac
+  shift
+done
+
+if [ -z "$SOURCE_FOLDER" ]; then
+  log_error "소스 폴더 ID가 필요합니다. -s <폴더ID>"
+  exit 1
+fi
+
 check_gws_deps
 
-# ── 설정 ──
-SOURCE_FOLDER="${1:?사용법: $0 <소스폴더ID> [백업모드] [대상경로/폴더ID]}"
-BACKUP_MODE="${2:-local}"        # local | drive
-BACKUP_TARGET="${3:-/tmp/drive-backup}"
 STATE_DIR="${HOME}/.drive-backup"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 LOG_DIR="${STATE_DIR}/logs"
@@ -18,7 +77,6 @@ STATE_FILE="${STATE_DIR}/${SOURCE_FOLDER}.state"
 LOG_FILE="${LOG_DIR}/backup-${TIMESTAMP}.log"
 PAGE_SIZE=100
 
-# 상태/로그 디렉토리 생성
 mkdir -p "$STATE_DIR" "$LOG_DIR"
 
 # ── 로깅 (파일+콘솔) ──
@@ -57,7 +115,6 @@ fetch_files() {
   local page_token=""
   local query="'${SOURCE_FOLDER}' in parents and trashed = false"
 
-  # 증분 백업: 마지막 백업 이후 수정된 파일만
   if [ -n "$LAST_BACKUP" ]; then
     query="${query} and modifiedTime > '${LAST_BACKUP}'"
     _blog "INFO" "증분 모드: ${LAST_BACKUP} 이후 변경 파일만 조회"
@@ -111,18 +168,11 @@ get_export_ext() {
 
 # ── 로컬 백업: 파일 다운로드 ──
 backup_to_local() {
-  local file_id="$1"
-  local file_name="$2"
-  local mime_type="$3"
-  local file_size="$4"
-  local md5="$5"
-
+  local file_id="$1" file_name="$2" mime_type="$3" file_size="$4" md5="$5"
   local dest_dir="${BACKUP_TARGET}/${TIMESTAMP}"
   mkdir -p "$dest_dir"
-
   local dest_path="${dest_dir}/${file_name}"
 
-  # Google Docs 계열은 export
   local export_mime
   export_mime=$(get_export_mime "$mime_type")
 
@@ -130,19 +180,16 @@ backup_to_local() {
     local ext
     ext=$(get_export_ext "$mime_type")
     dest_path="${dest_dir}/${file_name}${ext}"
-
     gws drive files export --params "{\"fileId\":\"${file_id}\",\"mimeType\":\"${export_mime}\"}" > "$dest_path" 2>/dev/null || {
       _blog "ERROR" "내보내기 실패: ${file_name}"
       ((FAILED++)) || true
       return 0
     }
   elif [[ "$mime_type" == application/vnd.google-apps.* ]]; then
-    # 기타 Google 앱 (폴더, 사이트 등)은 스킵
     _blog "SKIP" "지원하지 않는 Google 앱 타입: ${file_name} (${mime_type})"
     ((SKIPPED++)) || true
     return 0
   else
-    # 일반 파일 다운로드
     gws drive files get --params "{\"fileId\":\"${file_id}\",\"alt\":\"media\"}" > "$dest_path" 2>/dev/null || {
       _blog "ERROR" "다운로드 실패: ${file_name}"
       ((FAILED++)) || true
@@ -150,7 +197,6 @@ backup_to_local() {
     }
   fi
 
-  # MD5 검증 (일반 파일만, export 파일은 해시가 다름)
   if [ -n "$md5" ] && [ -z "$export_mime" ] && command -v md5sum &>/dev/null; then
     local local_md5
     local_md5=$(md5sum "$dest_path" | awk '{print $1}')
@@ -174,11 +220,7 @@ backup_to_local() {
 
 # ── Drive 백업: 파일 복사 ──
 backup_to_drive() {
-  local file_id="$1"
-  local file_name="$2"
-  local mime_type="$3"
-
-  # Google Docs 계열이 아닌 경우 또는 Google Docs 계열 모두 복사 가능
+  local file_id="$1" file_name="$2" mime_type="$3"
   local copy_params="{\"fileId\":\"${file_id}\",\"resource\":{\"name\":\"[백업 ${TIMESTAMP}] ${file_name}\",\"parents\":[\"${BACKUP_TARGET}\"]}}"
 
   gws drive files copy --params "$copy_params" >/dev/null 2>&1 || {
@@ -187,18 +229,15 @@ backup_to_drive() {
     return 0
   }
 
-  _blog "OK" "Drive 복사 완료: ${file_name} → ${BACKUP_TARGET}"
+  _blog "OK" "Drive 복사 완료: ${file_name} -> ${BACKUP_TARGET}"
   ((BACKED_UP++)) || true
 }
 
 # ── 하위 폴더 재귀 탐색 ──
 backup_folder_recursive() {
-  local folder_id="$1"
-  local depth="${2:-0}"
-  local indent=""
+  local folder_id="$1" depth="${2:-0}" indent=""
   for ((i=0; i<depth; i++)); do indent+="  "; done
 
-  # 현재 폴더의 파일 백업
   local files_json
   files_json=$(SOURCE_FOLDER="$folder_id" fetch_files)
 
@@ -216,16 +255,14 @@ backup_folder_recursive() {
     fmod=$(echo "$file" | jq -r '.modifiedTime // "unknown"')
 
     ((TOTAL_FILES++)) || true
-    echo "${indent}  📄 [${TOTAL_FILES}] ${fname} (${fmod})"
+    echo "${indent}  [${TOTAL_FILES}] ${fname} (${fmod})"
 
-    # 하위 폴더면 재귀
     if [ "$fmime" = "application/vnd.google-apps.folder" ]; then
       _blog "INFO" "${indent}하위 폴더 진입: ${fname}"
       backup_folder_recursive "$fid" "$((depth + 1))"
       continue
     fi
 
-    # 백업 실행
     if [ "$BACKUP_MODE" = "local" ]; then
       backup_to_local "$fid" "$fname" "$fmime" "$fsize" "$fmd5"
     else
@@ -235,11 +272,10 @@ backup_folder_recursive() {
 }
 
 # ── 메인 실행 ──
-echo "═══════════════════════════════════"
-echo "📦 Drive 증분 백업"
-echo "═══════════════════════════════════"
+echo "==================================="
+echo "Drive 증분 백업"
+echo "==================================="
 
-# 소스 폴더 정보 확인
 FOLDER_INFO=$(gws drive files get --params "{\"fileId\":\"${SOURCE_FOLDER}\",\"fields\":\"id,name,mimeType\"}" 2>/dev/null) || {
   _blog "ERROR" "소스 폴더 정보 조회 실패: ${SOURCE_FOLDER}"
   exit 1
@@ -248,47 +284,43 @@ FOLDER_INFO=$(gws drive files get --params "{\"fileId\":\"${SOURCE_FOLDER}\",\"f
 FOLDER_NAME=$(echo "$FOLDER_INFO" | jq -r '.name // "Unknown"')
 _blog "INFO" "소스 폴더명: ${FOLDER_NAME}"
 
-# 로컬 모드일 때 대상 디렉토리 확인
 if [ "$BACKUP_MODE" = "local" ]; then
   mkdir -p "${BACKUP_TARGET}/${TIMESTAMP}"
   _blog "INFO" "로컬 백업 경로: ${BACKUP_TARGET}/${TIMESTAMP}"
 fi
 
 echo ""
-echo "📂 파일 스캔 및 백업 중..."
+echo "파일 스캔 및 백업 중..."
 backup_folder_recursive "$SOURCE_FOLDER"
 
-# ── 백업 상태 저장 (증분 기준점) ──
 date -u +%Y-%m-%dT%H:%M:%SZ > "$STATE_FILE"
 _blog "INFO" "백업 상태 저장: $(cat "$STATE_FILE")"
 
-# ── 요약 리포트 ──
 echo ""
-echo "═══════════════════════════════════"
-echo "📊 백업 결과 요약"
-echo "═══════════════════════════════════"
+echo "==================================="
+echo "백업 결과 요약"
+echo "==================================="
 echo "  소스 폴더:       ${FOLDER_NAME}"
 echo "  백업 모드:       ${BACKUP_MODE}"
 echo "  총 파일 수:      ${TOTAL_FILES}개"
-echo "  ✅ 백업 성공:    ${BACKED_UP}건"
-echo "  ⏭️  스킵:         ${SKIPPED}건"
-echo "  ❌ 실패:         ${FAILED}건"
+echo "  백업 성공:       ${BACKED_UP}건"
+echo "  스킵:            ${SKIPPED}건"
+echo "  실패:            ${FAILED}건"
 if [ -n "$LAST_BACKUP" ]; then
-  echo "  📅 증분 기준:    ${LAST_BACKUP} 이후"
+  echo "  증분 기준:       ${LAST_BACKUP} 이후"
 else
-  echo "  📅 백업 유형:    전체 백업 (최초)"
+  echo "  백업 유형:       전체 백업 (최초)"
 fi
-echo "═══════════════════════════════════"
+echo "==================================="
 echo ""
-echo "📋 백업 로그: ${LOG_FILE}"
+echo "백업 로그: ${LOG_FILE}"
 
 if [ "$BACKUP_MODE" = "local" ]; then
   BACKUP_SIZE=$(du -sh "${BACKUP_TARGET}/${TIMESTAMP}" 2>/dev/null | awk '{print $1}')
-  echo "💾 백업 크기: ${BACKUP_SIZE:-0}"
-  echo "📁 백업 경로: ${BACKUP_TARGET}/${TIMESTAMP}"
+  echo "백업 크기: ${BACKUP_SIZE:-0}"
+  echo "백업 경로: ${BACKUP_TARGET}/${TIMESTAMP}"
 fi
 
-# 실패 건이 있으면 exit 1
 if [ "$FAILED" -gt 0 ]; then
   _blog "WARN" "일부 파일 백업 실패 (${FAILED}건). 로그를 확인하세요."
   exit 1

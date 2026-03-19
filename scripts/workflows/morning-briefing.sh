@@ -4,6 +4,33 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../utils/common.sh"
 source "${SCRIPT_DIR}/../../utils/gws-helpers.sh"
+
+# ── 사용법 ──
+usage() {
+  cat <<'USAGE'
+사용법: morning-briefing.sh [옵션]
+
+아침 브리핑을 생성합니다: 미읽은 메일 요약, 오늘 일정, 할 일 목록.
+
+옵션:
+  -h, --help              사용법 출력
+
+예시:
+  morning-briefing.sh
+USAGE
+  exit 0
+}
+
+# ── 인자 파싱 ──
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--help)   usage ;;
+    -*)          echo "알 수 없는 옵션: $1"; usage ;;
+    *)           ;;
+  esac
+  shift
+done
+
 check_gws_deps
 
 TODAY=$(date +%Y-%m-%d)
